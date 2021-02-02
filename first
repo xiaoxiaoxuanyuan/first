@@ -1,0 +1,97 @@
+from django.shortcuts import render,redirect,HttpResponse
+from app01 import models
+
+
+from django.forms import Form
+from django.forms import fields,widgets
+class LoginForm(Form):
+    t2 = fields.IntegerField(
+        max_value=1000,
+        min_value=10,
+        error_messages={
+            'invalid': 't2格式错误，必须为纯数字',
+        }
+    )
+    t3 = fields.CharField()
+    t4 = fields.URLField()
+    t5 = fields.SlugField()
+    t6 = fields.GenericIPAddressField()
+    t7 = fields.DateField()
+    t8 = fields.DateTimeField()
+    t9 = fields.RegexField('^1')
+    username = fields.CharField(
+        max_length=18,
+        min_length=6,
+        required=True,
+        error_messages={
+            'required':'不能为空',
+            'max_length':'太长了',
+            'min_length':'太短了',
+        }
+    )
+    password = fields.CharField(min_length=16,required=True)
+
+def test01(request):
+    if request.method == 'GET':
+        return render(request,'login.html')
+    else:
+        obj = LoginForm(request.POST) #将用户提交的form表单内容传给LoginForm
+        if obj.is_valid():  #is_valid方法可以让用户填写的内容和LoginForm定义的做对比，完全符合则返回True
+            print(obj.cleaned_data) #字典类型，插入数据库时   create(**obj.cleaned_data)
+            return  HttpResponse('ok')
+        else:
+            print(obj.errors) #obj.errors即是用户填错的所有错误信息，是一个对象，内部为字典格式,键为username，值为错误信息列表
+            print(obj.errors['username'][0])#此时只拿第一个错误信息
+            return render(request,'login.html',{'obj':obj})
+
+def login(request):
+    if request.method == 'GET':
+        return render(request,'login.html')
+    elif request.method == 'POST':
+        uname = request.POST.get('uname')
+        upwd = request.POST.get('upwd')
+        gender = request.POST.get('gender')
+        rmb = request.POST.get('rmb')
+        if gender == '1':
+            obj = models.BoyInfo.objects.all().filter(uname=uname,upwd=upwd)
+        else:
+            obj = models.GirlInfo.objects.all().filter(uname=uname, upwd=upwd)
+        if not obj :
+            return render(request, 'login.html')
+        else:
+            request.session['uname'] = uname
+            request.session['name'] = obj.first().name
+            request.session['gender'] = gender
+            if rmb == '11':
+                request.session.set_expiry(2592000)
+            return redirect('/index.html/')
+
+def ajax_login(request):
+    import json
+    ret = {'status':True,'msg':None}
+    obj = LoginForm(request.POST)
+    if not obj.is_valid():
+        ret['status'] = False
+        ret['msg']= obj.errors
+    v = json.dumps(ret)
+    return HttpResponse(v)
+
+class Formtest(Form):
+    uname = fields.CharField(min_length=8,required=True)
+    upwd = fields.CharField(min_length=8,required=True)
+    uemail = fields.EmailField()
+    uphone = fields.RegexField('139\d+')
+    city = fields.CharField(widget=widgets.Select(choices=[(1,'上海'),(2,'北京')]))
+    citya = fields.CharField(widget=widgets.TextInput(attrs={'class':'form-control'}))
+
+def testform(request):
+    if request.method == "GET":
+        obj = Formtest()
+        return render(request,'testform.html',{'obj':obj})
+    else:
+        obj = Formtest(request.POST)
+        if obj.is_valid():
+            print(obj.cleaned_data)
+        else:
+            print(obj.errors)
+        return render(request, 'testform.html', {'obj': obj})
